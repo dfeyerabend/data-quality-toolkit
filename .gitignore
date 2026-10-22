@@ -1,0 +1,66 @@
+######################################
+# PROJECT-SPECIFIC
+######################################
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Claude code utility
+.claude/
+
+# Data folders (some databases too large for git)
+/test_data/
+
+# File too large for github
+/example_data/deutsche-bahn-data-2024-10.parquet
+
+# Private files, not for GitHub
+/hidden/
+
+# Secrets / environment variables (e.g. for Railway deployment)
+.env
+.env.*
+
+######################################
+# PYTHON
+######################################
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+######################################
+# IDE / EDITOR
+######################################
+
+# PyCharm / IntelliJ
+.idea/
+
+# VS Code
+.vscode/
+
+######################################
+# OS FILES
+######################################
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+._*
+.AppleDouble
+
+# Linux
+*~
+.directory
+.Trash-*
