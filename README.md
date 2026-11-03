@@ -55,7 +55,7 @@ show_struct(report)    # collapsible per column detail in a notebook
 ```
 
 - Run this snippet from the project root.
-- Pass `engine="duckdb"` to run the same check on a Parquet file.
+- For DuckDB, pass a Parquet file path instead of a DataFrame: `inspect_data("example_data/example-sales_data.parquet", engine="duckdb")`.
 - Alternatively run the notebooks in `notebooks/`, they set up the import
 path themselves, so they run as-is after cloning.
   - Run test_pandas_engine.ipynb to try the pandas example
@@ -63,11 +63,7 @@ path themselves, so they run as-is after cloning.
 
 ## 📁 Example data
 - example_data/example-sales_data.csv: a small, synthetic, intentionally messy dataset.
-- The DuckDB example uses a larger Deutsche Bahn Parquet (about 71 MB) that is not
-committed. Download it from https://huggingface.co/datasets/piebro/deutsche-bahn-data
-(licensed CC BY 4.0) and save it as
-example_data/deutsche-bahn-data-2024-10.parquet, or point DATA_PATH to your own
-Parquet file.
+- example_data/example-sales_data.parquet: the same data as typed Parquet for the DuckDB example.
 
 ## 🌳 Project structure
 

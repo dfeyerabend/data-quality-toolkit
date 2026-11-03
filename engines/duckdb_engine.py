@@ -1,11 +1,6 @@
-import pandas as pd
-from pandas.api.types import (
-    is_bool_dtype,
-    is_float_dtype,
-    is_integer_dtype,
-    is_string_dtype,
-    is_datetime64_any_dtype,
-)
+from pathlib import Path
+
+import pandas as pd   # nur noch für clean_data_duckdb (Platzhalter)
 
 from .engines_config import (
     MISSING_VALUE_TOKENS,
@@ -14,38 +9,47 @@ from .engines_config import (
 )
 from utils.general_utils import summary_from_report
 
-# Precomputed SQL IN-list of the shared missing tokens, e.g. 'na', 'nan', ...
+# Precomputed SQL IN-list of the shared missing tokens, e.g. "na', nan, ..."
 _MISSING_TOKENS_SQL = ", ".join(f"'{t}'" for t in sorted(MISSING_VALUE_TOKENS))
 
+# DuckDB type names as returned by DESCRIBE
+_INTEGER_TYPES = {"TINYINT", "SMALLINT", "INTEGER", "BIGINT", "HUGEINT",
+                  "UTINYINT", "USMALLINT", "UINTEGER", "UBIGINT", "UHUGEINT"}
+_FLOAT_TYPES = {"FLOAT", "DOUBLE"}
+
+def _is_integer(dtype: str) -> bool:
+    return dtype in _INTEGER_TYPES
+
+
+def _is_float(dtype: str) -> bool:
+    return dtype in _FLOAT_TYPES or dtype.startswith("DECIMAL")
+
+
+def _is_string(dtype: str) -> bool:
+    return dtype == "VARCHAR"
 
 # -------------------
 # Helper Functions
 # -------------------
 
-def build_missing_condition(col: str, dtype) -> str:
+def build_missing_condition(col: str, dtype: str) -> str:
     """Return a DuckDB boolean expression that is TRUE when a value is missing.
 
     Args:
         col: Column name.
-        dtype: The column's pandas dtype.
+        dtype: The column's DuckDB type name.
 
     Returns:
         A SQL expression string.
     """
-    if is_bool_dtype(dtype):
-        return f"{col} IS NULL"
-    elif is_float_dtype(dtype):
+    if _is_float(dtype):
         return f"{col} IS NULL OR NOT isfinite({col})"   # NaN and +/-inf both count as missing
-    elif is_integer_dtype(dtype):
-        return f"{col} IS NULL"
-    elif is_string_dtype(dtype):
+    elif _is_string(dtype):
         return (
             f"{col} IS NULL "
             f"OR trim({col}) = '' "
             f"OR lower(trim({col})) IN ({_MISSING_TOKENS_SQL})"
         )
-    elif is_datetime64_any_dtype(dtype):
-        return f"{col} IS NULL"
     return f"{col} IS NULL"
 
 
@@ -53,16 +57,16 @@ def compute_numeric_overview(con, col, dtype, custom_range=None):
     """Compute negative-value and IQR/custom outlier counts for a numeric column.
 
     Args:
-        con: Open DuckDB connection with the data registered as ``data_table``.
+        con: Open DuckDB connection with the data available as ``data_table``.
         col: Column name.
-        dtype: The column's pandas dtype.
+        dtype: The column's DuckDB type name.
         custom_range: Optional (lower, upper) overriding the IQR bounds.
 
     Returns:
         A dict {n_negative, outliers:{n_low, n_high, lower, upper}}, or None for
         non-numeric columns.
     """
-    if not (is_integer_dtype(dtype) or is_float_dtype(dtype)):
+    if not (_is_integer(dtype) or _is_float(dtype)):
         return None
 
     n_negative = con.execute(
@@ -100,19 +104,19 @@ def compute_numeric_overview(con, col, dtype, custom_range=None):
     }
 
 
-def needs_uniqueness_check(col: str, dtype) -> bool:
+def needs_uniqueness_check(col: str, dtype: str) -> bool:
     """Return True if the column should get a uniqueness check.
 
     Args:
         col: Column name.
-        dtype: The column's pandas dtype.
+        dtype: The column's DuckDB type name.
 
     Returns:
         True for text columns or names containing the id marker.
     """
     if UNIQUENESS_NAME_SUBSTRING in col.lower():
         return True
-    if is_string_dtype(dtype):
+    if _is_string(dtype):
         return True
     return False
 
@@ -121,28 +125,35 @@ def needs_uniqueness_check(col: str, dtype) -> bool:
 # Main engine functions
 # -----------------------
 
-def inspect_data_duckdb(df: pd.DataFrame, custom_numeric_ranges=None):
+def inspect_data_duckdb(path, custom_numeric_ranges=None):
     """Run per-column diagnostics with DuckDB and return a table and a report.
 
     Pipeline: DuckDB engine's check entry point, called by ``core.inspect_data``
-    when ``engine="duckdb"``.
+    when ``engine="duckdb"``. The file is queried through a view and never
+    loaded into memory as a whole.
 
     Args:
-        df: The DataFrame to inspect (registered as a DuckDB view).
+        path: Path to the .parquet file to inspect.
         custom_numeric_ranges: Optional {column: (lower, upper)} overriding the
             IQR outlier bounds for those columns.
 
     Returns:
         A (summary_df, report) tuple: the one-row-per-column overview table and
         the per-column report dict.
+
+    Raises:
+        TypeError: If ``path`` is not a path to a .parquet file.
     """
     import duckdb
+
+    if not (isinstance(path, (str, Path)) and Path(path).suffix.lower() == ".parquet"):
+        raise TypeError(f"Expected a path to a .parquet file, got: {path!r}")
 
     report: dict = {}
     con = duckdb.connect()
     try:
-        con.register("data_table", df)
-        for col, dtype in df.dtypes.items():
+        con.execute(f"CREATE VIEW data_table AS SELECT * FROM read_parquet('{path}')")
+        for col, dtype, *_ in con.execute("DESCRIBE data_table").fetchall():
             missing_cond = build_missing_condition(col, dtype)
             total, missing = con.execute(
                 f"SELECT COUNT(*), SUM(CASE WHEN {missing_cond} THEN 1 ELSE 0 END) "
@@ -181,15 +192,15 @@ def inspect_data_duckdb(df: pd.DataFrame, custom_numeric_ranges=None):
     return summary_from_report(report), report
 
 
-def clean_data_duckdb(df: pd.DataFrame) -> pd.DataFrame:
+def clean_data_duckdb(path):
     """Placeholder for future cleaning logic.
 
-    Returns the DataFrame unchanged.
+    Returns the path unchanged.
 
     Args:
-        df: The input DataFrame.
+        path: Path to the .parquet file.
 
     Returns:
-        The same DataFrame, unchanged.
+        The same path, unchanged.
     """
-    return df
+    return path
