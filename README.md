@@ -1,12 +1,13 @@
 # 📊 Data Quality Toolkit
 
-> 🚧 Work in progress: this repository is not final yet.
+Get a quick overview of how clean a table is, column by column:   
+Missing values, outliers, unique values and, for messy CSV files - values of the wrong type.  
+The same check runs on pandas for small CSV files and on DuckDB for large Parquet files, and both return the same report.
 
-Inspect the quality of tabular datasets. The same API runs on two engines:
-pandas for small, messy CSV files and DuckDB for larger, typed Parquet. Both produce the
-same report, so you switch engine by data size without changing how you work.
+# **▶ [Try the live demo](https://data-quality-toolkit-production.up.railway.app)**:
+#### Pick an example dataset and an engine in your browser, no installation needed.
 
-## 🚀 What it does
+## 🔍 What it does
 
 - `inspect_data(data, engine=..., columns=None, custom_numeric_ranges=None)` returns an overview table (one row per column) and a detailed per column report: missing values, outliers, uniqueness, and for pandas also type issues. `columns` limits the check to some columns, `custom_numeric_ranges` replaces the automatic outlier limits, e.g. `{"Age": (18, 100)}`.
 
@@ -15,12 +16,10 @@ Two engines, one output:
 - `engine="pandas"` for small, messy CSV (a DataFrame or a path to a .csv file). It infers each column type, so it also flags values that do not fit (a numeric column with a stray text value).
 - `engine="duckdb"` for larger, typed data from Parquet. It runs the checks as SQL.
 
-Everything that must match across engines (what counts as missing, the IQR factor, the  uniqueness rule) lives in `engines/engines_config.py`, so both engines stay in sync.
+Everything that must match across engines (what counts as missing, the IQR factor, the uniqueness rule) lives in `engines/engines_config.py`, so both engines stay in sync.
 
-Note: the report's `dtype` field means the declared type for DuckDB and the inferred type  for pandas.
+Note: the report's `dtype` field means the declared type for DuckDB and the inferred type for pandas.
 
-## ⚙️ Work in progress
-- Column checks work on both engines and produce the same report.
 
 ## 💾 Installation
 ```bash
@@ -29,7 +28,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## 🚀 Usage
+## ⚙️ Usage
 
 ```python
 import pandas as pd
@@ -45,8 +44,10 @@ summary_table          # one row per column, quick overview
 show_struct(report)    # collapsible per column detail in a notebook
 ```
 
-- Run this snippet from the project root.
+- Run this snippet from the project root folder.
 - For DuckDB, pass a Parquet file path instead of a DataFrame: `inspect_data("example_data/example-sales_data.parquet", engine="duckdb")`.
+
+
 - Alternatively run the notebooks in `notebooks/`, they set up the import
 path themselves, so they run as-is after cloning.
   - Run test_pandas_engine.ipynb to try the pandas example
