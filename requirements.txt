@@ -1,5 +1,6 @@
-pandas
-IPython
-duckdb
-fastparquet
-pyyaml
+pandas==3.1.0
+numpy==2.5.4
+duckdb==2.0.0
+gradio==6.31.0
+ipython==9.17.1
+pyyaml==6.0.3
