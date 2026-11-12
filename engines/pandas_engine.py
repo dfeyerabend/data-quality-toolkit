@@ -1,9 +1,7 @@
-"""pandas engine for the data-quality tool: column diagnostics on a DataFrame.
+"""pandas engine for the data-quality tool: column diagnostics on a DataFrame or CSV file.
 
-Produces the shared per-column report (same shape as the other engines), so a
-report is interchangeable regardless of which engine built it. Cross-engine
-definitions (missing tokens, IQR factor, uniqueness heuristic) come from
-``engines.engines_config`` so the engines cannot drift apart.
+Produces the shared per-column report (same shape as the other engines), so a report is interchangeable regardless of which engine built it.
+Cross-engine definitions (missing tokens, IQR factor, uniqueness heuristic) come from ``engines.engines_config`` so that the engines cannot drift apart.
 """
 
 from __future__ import annotations
@@ -11,6 +9,7 @@ from __future__ import annotations
 import math
 import re
 from datetime import datetime, date
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -151,11 +150,33 @@ def iqr_bounds(series: pd.Series) -> Tuple[float, float]:
     upper = Q3 + IQR_FACTOR * IQR
     return lower, upper
 
+def _load_input(data: Any) -> pd.DataFrame:
+    """Return the input as a DataFrame, reading it first and checking if it is a CSV path.
+
+    Pipeline: first step of ``inspect_data_pandas``.
+
+    Args:
+        data: A pandas DataFrame, or a path (str or Path) to a .csv file.
+
+    Returns:
+        The DataFrame to inspect.
+
+    Raises:
+        TypeError: If ``data`` is neither a DataFrame nor a path to a .csv file.
+    """
+    if isinstance(data, pd.DataFrame):
+        return data
+    if isinstance(data, (str, Path)) and Path(data).suffix.lower() == ".csv":
+        return pd.read_csv(data)   # default parsing: a path and a pre-loaded DataFrame give the same report
+    raise TypeError(
+        f"The pandas engine expects a DataFrame or a path to a .csv file, but got: {data!r}. "
+        "For Parquet files use engine='duckdb'."
+    )
 
 # === CHECK ENTRY POINT ===
 
 def inspect_data_pandas(
-    df: pd.DataFrame,
+    data: Any,
     columns: Optional[List[str]] = None,
     custom_numeric_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
@@ -165,7 +186,7 @@ def inspect_data_pandas(
     when ``engine="pandas"``.
 
     Args:
-        df: The DataFrame to inspect.
+        data: The DataFrame to inspect, or a path to a .csv file.
         columns: Optional subset of columns to inspect; all columns if None.
         custom_numeric_ranges: Optional {column: (lower, upper)} overriding the
             IQR outlier bounds for those columns.
@@ -175,9 +196,12 @@ def inspect_data_pandas(
         aggregate counts; report is the per-column JSON-like dict.
 
     Raises:
-        TypeError: If ``columns`` is not a list of column names.
+        TypeError: If ``data`` is neither a DataFrame nor a path to a .csv file,
+            or if ``columns`` is not a list of column names.
         KeyError: If any name in ``columns`` is absent from the DataFrame.
     """
+    df = _load_input(data)
+
     if columns is not None:
         try:
             missing = [c for c in columns if c not in df.columns]
