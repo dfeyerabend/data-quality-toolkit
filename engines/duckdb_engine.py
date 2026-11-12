@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pandas as pd   # nur noch für clean_data_duckdb (Platzhalter)
-
 from .engines_config import (
     MISSING_VALUE_TOKENS,
     IQR_FACTOR,
@@ -190,17 +188,3 @@ def inspect_data_duckdb(path, custom_numeric_ranges=None):
         con.close()
 
     return summary_from_report(report), report
-
-
-def clean_data_duckdb(path):
-    """Placeholder for future cleaning logic.
-
-    Returns the path unchanged.
-
-    Args:
-        path: Path to the .parquet file.
-
-    Returns:
-        The same path, unchanged.
-    """
-    return path

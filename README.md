@@ -2,7 +2,7 @@
 
 > 🚧 Work in progress: this repository is not final yet.
 
-Inspect and clean the quality of tabular datasets. The same API runs on two engines:
+Inspect the quality of tabular datasets. The same API runs on two engines:
 pandas for small, messy CSV files and DuckDB for larger, typed Parquet. Both produce the
 same report, so you switch engine by data size without changing how you work.
 
@@ -10,27 +10,19 @@ same report, so you switch engine by data size without changing how you work.
 
 Two operations behind one API:
 
-- `inspect_data(df, engine=...)` returns an overview table (one row per column) and a
-  detailed per column report: missing values, outliers, uniqueness, and for pandas also
-  type issues.
-- `clean_data(df, engine=...)` will fix the detected issues. It is a placeholder for now
-  and returns the data unchanged.
+- `inspect_data(df, engine=...)` returns an overview table (one row per column) and a detailed per column report: missing values, outliers, uniqueness, and for pandas also  type issues.
 
 Two engines, one output:
 
-- `engine="pandas"` for small, messy CSV. It infers each column type, so it also flags
-  values that do not fit (a numeric column with a stray text value).
+- `engine="pandas"` for small, messy CSV. It infers each column type, so it also flags  values that do not fit (a numeric column with a stray text value).
 - `engine="duckdb"` for larger, typed data from Parquet. It runs the checks as SQL.
 
-Everything that must match across engines (what counts as missing, the IQR factor, the
-uniqueness rule) lives in `engines/engines_config.py`, so both engines stay in sync.
+Everything that must match across engines (what counts as missing, the IQR factor, the  uniqueness rule) lives in `engines/engines_config.py`, so both engines stay in sync.
 
-Note: the report's `dtype` field means the declared type for DuckDB and the inferred type
-for pandas.
+Note: the report's `dtype` field means the declared type for DuckDB and the inferred type  for pandas.
 
 ## ⚙️ Work in progress
 - Column checks work on both engines and produce the same report.
-- Cleaning (`clean_data`) is a placeholder and returns the data unchanged.
 
 ## 💾 Installation
 ```bash
@@ -70,9 +62,9 @@ path themselves, so they run as-is after cloning.
 
 ```
 ├─ engines/
-│  ├─ core.py              ← engine dispatch (inspect_data / clean_data)
-│  ├─ pandas_engine.py     ← pandas check + clean
-│  ├─ duckdb_engine.py     ← DuckDB check + clean
+│  ├─ core.py              ← engine dispatch (inspect_data)
+│  ├─ pandas_engine.py     ← pandas check
+│  ├─ duckdb_engine.py     ← DuckDB check
 │  └─ engines_config.py    ← shared cross-engine definitions
 ├─ utils/
 │  ├─ general_utils.py     ← builds the overview table from a report
@@ -82,8 +74,3 @@ path themselves, so they run as-is after cloning.
 ├─ README.md
 └─ requirements.txt
 ```
-
-## 🔧 Roadmap / TODO
-- Implement clean_data (per column fixes for the detected issues).
-- Extend the checks and add more cleaning rules.
-- Package a small web demo

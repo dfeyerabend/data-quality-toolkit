@@ -13,9 +13,6 @@ env/
 # Data folders (some databases too large for git)
 /test_data/
 
-# File too large for github
-/example_data/deutsche-bahn-data-2024-10.parquet
-
 # Private files, not for GitHub
 /hidden/
 

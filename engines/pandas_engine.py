@@ -161,7 +161,7 @@ def inspect_data_pandas(
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Run per-column diagnostics and return a summary table and a report.
 
-    Pipeline: pandas engine's check entry point, called by ``core.check_data``
+    Pipeline: pandas engine's check entry point, called by ``core.inspect_data``
     when ``engine="pandas"``.
 
     Args:
@@ -269,33 +269,3 @@ def inspect_data_pandas(
 
     summary_df = summary_from_report(report)
     return summary_df, report
-
-
-# === FIX ENTRY POINT ===
-
-def clean_data_pandas(
-    df: pd.DataFrame,
-    columns: Optional[List[str]] = None,
-    inplace: bool = False,
-    rules: Optional[Dict[str, Any]] = None,
-) -> pd.DataFrame:
-    """Clean a DataFrame, or a selected subset of its columns.
-
-    The cleaning transformations are not implemented yet; the function returns
-    the data unchanged (a copy unless ``inplace`` is set), so callers and the
-    engine API are already stable.
-
-    Args:
-        df: The input DataFrame to clean.
-        columns: Subset of columns to clean. If None, all columns are considered.
-        inplace: If True, operate on and return the same object; if False, work
-            on a copy and return the cleaned copy.
-        rules: Column-specific cleaning instructions; currently unused, kept for
-            API stability.
-
-    Returns:
-        The DataFrame (the same object if ``inplace`` is True, else a copy).
-    """
-    if not inplace:
-        df = df.copy()
-    return df
