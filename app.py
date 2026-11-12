@@ -45,26 +45,31 @@ CHOICE_WIDTH = 240
 # === STATIC UI CONTENT ===
 
 INSTRUCTIONS_MD = """
-**How to use**
-
-1. Pick a **dataset**: the same small sales dataset, once as CSV and once as Parquet.
-2. Pick an **engine**: pandas reads CSV, DuckDB reads Parquet. Each engine only accepts its own file type, so a mismatched pair shows an error on purpose.
-3. Optional: open **Columns** and click the columns you want to check. A second click removes a column again. Nothing selected means all columns.
-4. Optional: set a **lower** and an **upper limit**. They replace the automatic outlier limits for every selected column that holds numbers (or for all number columns if nothing is selected). Fill in both fields or neither.
+1. **Dataset:** select the example sales data as CSV or as Parquet. Both files hold the same data.
+2. **Engine:** select how the file is read.
+    - pandas reads CSV, DuckDB reads Parquet.
+    - A mismatched pair shows an error on purpose.
+3. **Columns** (optional): click the columns to inspect, click again to remove one. Nothing selected means all columns.
+4. **Lower and upper limit** (optional): your own outlier limits instead of the automatic ones.
+    - They apply to every selected number column, or to all number columns if nothing is selected.
+    - Fill in both fields or neither.
 5. Click **Run inspect data**.
-
----
 
 **What you get**
 
-- **Overview table:** one row per column with the counts of missing values, values of the wrong type (pandas only), negative values, outliers below and above the limits, and unique values.
-- **Detailed report:** the same per column, plus the outlier limits that were used and, for pandas, which values have the wrong type.
+- **Overview table:** one row per column with counts of missing values, wrong types (pandas only), negative values, outliers and unique values.
+- **Detailed report:** the same per column, plus the outlier limits used and, for pandas, the values with the wrong type.
 
-**How outliers are found:** a value counts as an outlier when it lies below Q1 − 1.5 × IQR or above Q3 + 1.5 × IQR of its column, unless you set your own limits.
+**How outliers are found**
 
-**Why two engines:** pandas checks every single value and guesses its type, which catches messy CSV files but is slow on big data. DuckDB trusts the column types stored in a Parquet file and runs every check as SQL without loading the file into memory.
+A value is an outlier if it lies below Q1 − 1.5 × IQR or above Q3 + 1.5 × IQR of its column. Your own limits replace this rule.
 
-The example data is synthetic and messy on purpose.
+**Why two engines**
+
+- **pandas** checks every single value and guesses its type. Good for messy CSV files, slow on big data.
+- **DuckDB** trusts the column types stored in a Parquet file and runs every check as SQL, without loading the file into memory.
+
+*The example data is synthetic and messy on purpose.*
 """
 
 # Shown in the status line before the first run.
@@ -186,8 +191,9 @@ def run_check(dataset_name, engine, selected_columns, lower_text, upper_text):
         upper_text: Text of the upper limit field, possibly empty.
 
     Returns:
-        (status message, overview table, report as plain values). On an error the table
-        and report are None and the message says what went wrong.
+        (status message, overview table, report as plain values, visibility update for
+        the results area). On an error the table and report are None, the results area
+        is hidden and the message says what went wrong.
     """
     try:
         all_columns = read_column_names(dataset_name)
@@ -198,12 +204,17 @@ def run_check(dataset_name, engine, selected_columns, lower_text, upper_text):
             columns=selected_columns or None,   # an empty selection means all columns
             custom_numeric_ranges=custom_ranges,
         )
-    except (TypeError, KeyError, ValueError) as e:
-        # Expected user errors (e.g. CSV with DuckDB): show the engine's own message.
-        return f"⛔ {e}", None, None
-    except Exception as e:
-        logger.error("run_check failed unexpectedly: %s", e)
-        return f"Unexpected error while running the check: {e}", None, None
+    except TypeError as e:
+        # From the UI this only happens when engine and file type do not match.
+        logger.info("run_check: engine/file type mismatch (%s)", e)
+        if engine == "pandas":
+            message = "Pandas reads CSV only. Select DuckDB for the Parquet file."
+        else:
+            message = "DuckDB reads Parquet only. Select Pandas for the CSV file."
+        return f"⛔ {message}", None, None, gr.update(visible=False)
+    except (KeyError, ValueError) as e:
+        # Expected user errors (e.g. only one limit filled in): show the message as it is.
+        return f"⛔ {e}", None, None, gr.update(visible=False)
 
     if custom_ranges:
         range_lower, range_upper = next(iter(custom_ranges.values()))
@@ -214,7 +225,7 @@ def run_check(dataset_name, engine, selected_columns, lower_text, upper_text):
         f"✅ Checked {len(summary_table)} column(s) of **{dataset_name}** "
         f"with **{engine}**{limits_note}."
     )
-    return status_message, summary_table, convert_json_to_python(report)
+    return status_message, summary_table, convert_json_to_python(report), gr.update(visible=True)
 
 
 # === STYLING ===
@@ -223,17 +234,18 @@ custom_css = """
 /* Centered header block. */
 .header-container {
     text-align: center;
-    padding: 1rem 0 0.5rem 0;
+    padding: 1.5rem 0 1rem 0;
 }
 .header-container h1 {
-    margin-bottom: 0.25rem;
+    font-size: 2.5rem !important;
+    margin-bottom: 0.5rem;
 }
 .tech-stack {
-    font-size: 0.9rem;
-    opacity: 0.7;
+    font-size: 1.15rem !important;
+    opacity: 0.75;
 }
 .author-line {
-    font-size: 0.85rem;
+    font-size: 1rem !important;
     opacity: 0.6;
     margin-top: 0.5rem;
 }
@@ -241,6 +253,13 @@ custom_css = """
 /* Bold accordion titles, so the collapsed sections stand out. */
 .bold-accordion .label-wrap span:first-child {
     font-weight: 700;
+}
+
+/* Larger text inside the instructions; Gradio fixes Markdown text at 14px otherwise. */
+.bold-accordion .md,
+.bold-accordion .md p,
+.bold-accordion .md li {
+    font-size: 1rem !important;
 }
 
 /* Dataset and engine options as buttons of one fixed width, stacked on top of each other. */
@@ -301,7 +320,7 @@ with gr.Blocks(title="Data Quality Toolkit") as demo:
         <div class="header-container">
             <h1>📊 Data Quality Toolkit</h1>
             <p class="tech-stack">
-                pandas for messy CSV · DuckDB for large Parquet · one report for both
+                Pandas for small CSV · DuckDB for larger Parquet · One report for both
             </p>
             <p class="author-line">
                 Built by Dennis Feyerabend ·
@@ -347,12 +366,14 @@ with gr.Blocks(title="Data Quality Toolkit") as demo:
 
     status_text = gr.Markdown(STATUS_HINT, elem_classes=["output-block", "status-line"])
 
-    # Own headings instead of the built-in labels, which Gradio draws in a very small font.
-    gr.Markdown("### Overview table", elem_classes=["output-block", "section-title"])
-    summary_view = gr.Dataframe(value=pd.DataFrame(), show_label=False, interactive=False)
+    # Hidden until the first successful run, so Gradio's empty placeholders never show.
+    with gr.Column(visible=False) as results_area:
+        # Own headings instead of the built-in labels, which Gradio draws in a very small font.
+        gr.Markdown("### Overview table", elem_classes=["output-block", "section-title"])
+        summary_view = gr.Dataframe(value=pd.DataFrame(), show_label=False, interactive=False)
 
-    gr.Markdown("### Detailed report", elem_classes=["output-block", "section-title"])
-    report_view = gr.JSON(show_label=False)
+        gr.Markdown("### Detailed report", elem_classes=["output-block", "section-title"])
+        report_view = gr.JSON(show_label=False)
 
     # A new dataset may have different columns, so the column buttons are rebuilt each time.
     dataset_choice.change(fn=on_dataset_change, inputs=dataset_choice, outputs=column_choice)
@@ -361,7 +382,7 @@ with gr.Blocks(title="Data Quality Toolkit") as demo:
     run_button.click(
         fn=run_check,
         inputs=[dataset_choice, engine_choice, column_choice, lower_limit_input, upper_limit_input],
-        outputs=[status_text, summary_view, report_view],
+        outputs=[status_text, summary_view, report_view, results_area],
     )
 
 
