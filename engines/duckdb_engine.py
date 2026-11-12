@@ -119,11 +119,39 @@ def needs_uniqueness_check(col: str, dtype: str) -> bool:
     return False
 
 
+def _select_columns(schema, columns):
+    """Pick the columns to inspect from the table schema.
+
+    Pipeline: called by ``inspect_data_duckdb`` before the per-column checks.
+
+    Args:
+        schema: Rows returned by ``DESCRIBE``; the first two fields of each row
+            are the column name and its DuckDB type name.
+        columns: Column names to keep, in this order; all columns if None.
+
+    Returns:
+        A list of (column name, DuckDB type name) tuples.
+
+    Raises:
+        TypeError: If ``columns`` is not a list or tuple of column names.
+        KeyError: If any name in ``columns`` is absent from the schema.
+    """
+    types = {row[0]: row[1] for row in schema}
+    if columns is None:
+        return list(types.items())
+    if not isinstance(columns, (list, tuple)):   # a bare string would be split into characters
+        raise TypeError("Columns must be a list of strings")
+    missing = [c for c in columns if c not in types]
+    if missing:
+        raise KeyError(f"Columns {missing} not found in the Parquet file")
+    return [(c, types[c]) for c in columns]
+
+
 # -----------------------
 # Main engine functions
 # -----------------------
 
-def inspect_data_duckdb(path, custom_numeric_ranges=None):
+def inspect_data_duckdb(path, columns=None, custom_numeric_ranges=None):
     """Run per-column diagnostics with DuckDB and return a table and a report.
 
     Pipeline: DuckDB engine's check entry point, called by ``core.inspect_data``
@@ -132,6 +160,8 @@ def inspect_data_duckdb(path, custom_numeric_ranges=None):
 
     Args:
         path: Path to the .parquet file to inspect.
+        columns: Optional subset of columns to inspect, in this order; all
+            columns if None.
         custom_numeric_ranges: Optional {column: (lower, upper)} overriding the
             IQR outlier bounds for those columns.
 
@@ -140,7 +170,9 @@ def inspect_data_duckdb(path, custom_numeric_ranges=None):
         the per-column report dict.
 
     Raises:
-        TypeError: If ``path`` is not a path to a .parquet file.
+        TypeError: If ``path`` is not a path to a .parquet file, or if
+            ``columns`` is not a list of column names.
+        KeyError: If any name in ``columns`` is absent from the file.
     """
     import duckdb
 
@@ -151,7 +183,8 @@ def inspect_data_duckdb(path, custom_numeric_ranges=None):
     con = duckdb.connect()
     try:
         con.execute(f"CREATE VIEW data_table AS SELECT * FROM read_parquet('{path}')")
-        for col, dtype, *_ in con.execute("DESCRIBE data_table").fetchall():
+        schema = con.execute("DESCRIBE data_table").fetchall()
+        for col, dtype in _select_columns(schema, columns):
             missing_cond = build_missing_condition(col, dtype)
             total, missing = con.execute(
                 f"SELECT COUNT(*), SUM(CASE WHEN {missing_cond} THEN 1 ELSE 0 END) "
