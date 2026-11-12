@@ -1,7 +1,9 @@
 """pandas engine for the data-quality tool: column diagnostics on a DataFrame or CSV file.
 
-Produces the shared per-column report (same shape as the other engines), so a report is interchangeable regardless of which engine built it.
-Cross-engine definitions (missing tokens, IQR factor, uniqueness heuristic) come from ``engines.engines_config`` so that the engines cannot drift apart.
+Produces the shared per-column report (same shape as the other engines), so a
+report is interchangeable regardless of which engine built it. Cross-engine
+definitions (missing tokens, IQR factor, uniqueness heuristic) come from
+``engines.engines_config`` so that the engines cannot drift apart.
 """
 
 from __future__ import annotations
@@ -159,8 +161,9 @@ def iqr_bounds(series: pd.Series) -> Tuple[float, float]:
     upper = Q3 + IQR_FACTOR * IQR
     return lower, upper
 
+
 def _load_input(data: Any) -> pd.DataFrame:
-    """Return the input as a DataFrame, reading it first and checking if it is a CSV path.
+    """Return the input as a DataFrame, reading it from disk if it is a CSV path.
 
     Pipeline: first step of ``inspect_data_pandas``.
 
@@ -181,6 +184,7 @@ def _load_input(data: Any) -> pd.DataFrame:
         f"The pandas engine expects a DataFrame or a path to a .csv file, but got: {data!r}. "
         "For Parquet files use engine='duckdb'."
     )
+
 
 # === CHECK ENTRY POINT ===
 
