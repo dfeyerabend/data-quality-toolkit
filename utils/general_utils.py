@@ -1,6 +1,53 @@
+import math
+from datetime import date, datetime
 from typing import Any, Dict
 
+import numpy as np
 import pandas as pd
+
+
+def convert_json_to_python(value: Any) -> Any:
+    """Convert a report, or any part of it, into plain Python values.
+
+    Pipeline: used by ``notebook_utils.show_struct`` and the Gradio app before a
+    report is printed or shown as JSON.
+
+    Args:
+        value: Any value from a report; dicts, lists and tuples are converted
+            recursively.
+
+    Returns:
+        The same structure built only from dict, list, tuple, str, int, float,
+        bool and None. NaN and pandas NA become None, numpy numbers become
+        Python numbers, dates become ISO text.
+    """
+    if value is pd.NA:
+        return None
+
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        number = float(value)
+        return None if math.isnan(number) else number
+    if isinstance(value, np.bool_):
+        return bool(value)
+
+    if isinstance(value, (datetime, date)):   # also covers pd.Timestamp, a datetime subclass
+        return value.isoformat()
+    if isinstance(value, pd.Timedelta):
+        return str(value)
+
+    if isinstance(value, float) and math.isnan(value):
+        return None
+
+    if isinstance(value, dict):
+        return {convert_json_to_python(key): convert_json_to_python(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [convert_json_to_python(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(convert_json_to_python(item) for item in value)
+
+    return value
 
 
 def summary_from_report(report: Dict[str, Any]) -> pd.DataFrame:

@@ -4,50 +4,15 @@ Helper for pretty-printing nested Python objects as collapsible YAML/JSON in Jup
 
 from __future__ import annotations
 
-import math
 from pprint import pformat
 from typing import Any
 import html as _html  # for HTML escaping
 
 import numpy as np
-import pandas as pd
 import yaml
 from IPython.display import HTML, display
 
-
-def _coerce(value: Any) -> Any:
-    """
-    Recursively convert numpy/pandas scalar types into builtin Python types.
-
-    This makes the object easier to serialize as YAML/JSON.
-    """
-    if value is pd.NA:
-        return None
-
-    if isinstance(value, (np.integer,)):
-        return int(value)
-    if isinstance(value, (np.floating,)):
-        v = float(value)
-        return None if math.isnan(v) else v
-    if isinstance(value, (np.bool_,)):
-        return bool(value)
-
-    if isinstance(value, pd.Timestamp):
-        return value.isoformat()
-    if isinstance(value, pd.Timedelta):
-        return str(value)
-
-    if isinstance(value, float) and math.isnan(value):
-        return None
-
-    if isinstance(value, dict):
-        return {_coerce(k): _coerce(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_coerce(v) for v in value]
-    if isinstance(value, tuple):
-        return tuple(_coerce(v) for v in value)
-
-    return value
+from utils.general_utils import convert_json_to_python
 
 
 class _SafeDumper(yaml.SafeDumper):
@@ -75,7 +40,7 @@ def show_struct(obj: Any, kind: str = "yaml", width: int = 140) -> None:
     width : int, default 140
         Wrap width for the printed output.
     """
-    data = _coerce(obj)
+    data = convert_json_to_python(obj)
 
     # If it's not a dict, just fall back to a single block.
     if not isinstance(data, dict):
