@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import re
+import warnings
 from datetime import datetime, date
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -21,6 +22,14 @@ from .engines_config import (
     UNIQUENESS_NAME_SUBSTRING,
 )
 from utils.general_utils import summary_from_report
+
+# pandas warns when it has to guess whether a date starts with the day or the month.
+# This engine only checks if a value is a date at all, so the warning can be ignored.
+warnings.filterwarnings(
+    "ignore",
+    message=r"Parsing dates in .* format when dayfirst=False",
+    category=UserWarning,
+)
 
 # Regex used only for per-cell type inference (numeric and ISO datetime forms).
 _int_re = re.compile(r"^[+-]?\d+$")
